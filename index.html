@@ -318,15 +318,15 @@ body{
     <div class="api-toggle" onclick="toggleApi()">⚙ API 设置</div>
     <div class="api-panel" id="apiPanel">
       <div class="api-tabs">
-        <button class="api-tab sel" id="tabGM" onclick="selApi('gm')">Gemini 中转</button>
-        <button class="api-tab" id="tabDS" onclick="selApi('ds')">DeepSeek</button>
+        <button class="api-tab" id="tabGM" onclick="selApi('gm')">Gemini 中转</button>
+        <button class="api-tab sel" id="tabDS" onclick="selApi('ds')">DeepSeek</button>
       </div>
-      <div id="gmUrlWrap">
+      <div id="gmUrlWrap" style="display:none">
         <span class="api-lbl">Gemini 中转地址</span>
         <input class="api-input" id="iGmUrl" type="text" placeholder="https://api.viviai.cc" value="https://api.viviai.cc">
       </div>
       <span class="api-lbl" style="margin-top:4px">API Key</span>
-      <input class="api-input" id="iKey" type="password" placeholder="输入对应的 API Key" value="sk-nwB3wT0fGOfBSe1igRhPrOS4nwLP5m6n0i04oO8viaT7S83a">
+      <input class="api-input" id="iKey" type="password" placeholder="sk-..." value="sk-a70c9fa165e848e2938bdc376f06fa77">
       <span class="api-lbl" style="margin-top:4px">飞书 Webhook（可选）</span>
       <input class="api-input" id="iFeishu" type="text" placeholder="https://open.feishu.cn/..." value="https://open.feishu.cn/open-apis/bot/v2/hook/05f10434-2786-4f51-a08c-23b3012a4cda">
     </div>
@@ -409,7 +409,7 @@ const CFG = {
 
 // ══ STATE ════════════════════════════════════════
 const S = {
-  name:'', apiType:'gm', apiKey:'', gmBase:'', feishu: CFG.feishu,
+  name:'', apiType:'ds', apiKey:'', gmBase:'', feishu: CFG.feishu,
   msgs:[], stage:1, mantra:'', busy:false,
 };
 
