@@ -328,7 +328,7 @@ body{
       <span class="api-lbl" style="margin-top:4px">API Key</span>
       <input class="api-input" id="iKey" type="password" placeholder="sk-..." value="sk-a70c9fa165e848e2938bdc376f06fa77">
       <span class="api-lbl" style="margin-top:4px">飞书 Webhook（可选）</span>
-      <input class="api-input" id="iFeishu" type="text" placeholder="https://open.feishu.cn/..." value="https://open.feishu.cn/open-apis/bot/v2/hook/05f10434-2786-4f51-a08c-23b3012a4cda">
+      <input class="api-input" id="iFeishu" type="text" placeholder="https://open.feishu.cn/..." value="https://open.feishu.cn/open-apis/bot/v2/hook/6c2e4765-9a7c-4f51-873e-64e985f8faa5">
     </div>
   </div>
 </div>
@@ -404,7 +404,7 @@ body{
 const CFG = {
   gm: { base:'https://api.viviai.cc', model:'gemini-2.5-pro', key:'sk-nwB3wT0fGOfBSe1igRhPrOS4nwLP5m6n0i04oO8viaT7S83a' },
   ds: { base:'https://api.deepseek.com', model:'deepseek-chat', key:'sk-a70c9fa165e848e2938bdc376f06fa77' },
-  feishu:'https://open.feishu.cn/open-apis/bot/v2/hook/05f10434-2786-4f51-a08c-23b3012a4cda',
+  feishu:'https://open.feishu.cn/open-apis/bot/v2/hook/6c2e4765-9a7c-4f51-873e-64e985f8faa5',
 };
 
 // ══ STATE ════════════════════════════════════════
@@ -602,7 +602,18 @@ function extractMantra(text) {
   return m ? m[1].trim() : null;
 }
 
-window.closeMantra = () => document.getElementById('mantraOv').classList.remove('on');
+window.closeMantra = () => {
+  document.getElementById('mantraOv').classList.remove('on');
+  if (S._pendingReport) {
+    const r = S._pendingReport;
+    S._pendingReport = null;
+    setTimeout(() => buildReport(r), 600);
+  }
+};
+
+window.reopenMantra = () => {
+  if (S.mantra) document.getElementById('mantraOv').classList.add('on');
+};
 
 // ══ CACHE ════════════════════════════════════════
 function cacheKey() { return 'rose_' + S.name + '_' + new Date().toDateString(); }
@@ -636,7 +647,7 @@ function show(id) {
 
 function fmt(t) {
   // Replace mantra block with a soft indicator
-  t = t.replace(/===MANTRA_START===[\s\S]*?===MANTRA_END===/g, '〔 ✦ 你的专属咒语已送达 ✦ 〕');
+  t = t.replace(/===MANTRA_START===[\s\S]*?===MANTRA_END===/g, '<span style="cursor:pointer;color:var(--gold);text-decoration:underline dotted" onclick="reopenMantra()">〔 ✦ 点击重看你的专属咒语 ✦ 〕</span>');
   return t
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/\n/g,'<br>')
@@ -726,18 +737,20 @@ async function send() {
 
     // Detect mantra
     const mantra = extractMantra(reply);
+    const hasReport = reply.includes('深潜实录') && reply.includes('建城图纸');
     if (mantra && !S.mantra) {
       S.mantra = mantra;
       document.getElementById('mantraTxt').textContent = mantra;
-      setTimeout(() => document.getElementById('mantraOv').classList.add('on'), 400);
+      if (hasReport) S._pendingReport = reply; // 报告等咒语关闭后再显示
+      setTimeout(() => document.getElementById('mantraOv').classList.add('on'), 3000);
     }
 
     // Detect report
-    if (reply.includes('深潜实录') && reply.includes('建城图纸')) {
+    if (hasReport) {
       addMsg('assistant', reply);
       saveCache();
-      sendFeishu(); // auto-send full record
-      setTimeout(() => buildReport(reply), 1200);
+      sendFeishu();
+      if (!mantra) setTimeout(() => buildReport(reply), 1200); // 无咒语时直接显示
       S.busy = false;
       document.getElementById('sendBtn').disabled = false;
       return;
@@ -889,23 +902,4 @@ function showCacheBanner(c) {
     <div class="cache-bar">
       <span>🌹 检测到今天未完成的对话，是否继续？</span>
       <div class="cache-btns">
-        <button class="c-btn c-yes" onclick="restoreCache()">继续</button>
-        <button class="c-btn c-no" onclick="clearBanner()">重新开始</button>
-      </div>
-    </div>`;
-}
-
-window.restoreCache = () => {
-  const c = S._cache;
-  S.msgs = c.msgs; S.stage = c.stage; S.mantra = c.mantra || '';
-  setStage(S.stage); document.getElementById('cacheBanner').innerHTML = '';
-  reMsgs();
-};
-
-window.clearBanner = () => {
-  document.getElementById('cacheBanner').innerHTML = '';
-  startConvo();
-};
-</script>
-</body>
-</html>
+        <button class="c-btn c-yes" onclick="restoreCache(
