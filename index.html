@@ -215,6 +215,13 @@ body{
   cursor:pointer;letter-spacing:1px;transition:background .2s;
 }
 .mantra-close:hover{background:rgba(201,169,110,.22)}
+.mantra-save{
+  display:block;margin:12px auto 0;padding:9px 24px;
+  background:transparent;border:1px solid rgba(201,169,110,.2);
+  color:rgba(201,169,110,.55);border-radius:100px;font-size:13px;font-family:inherit;
+  cursor:pointer;letter-spacing:.5px;transition:all .2s;
+}
+.mantra-save:hover{border-color:rgba(201,169,110,.4);color:var(--gold)}
 
 /* ─── Report ─── */
 #sReport{
@@ -387,6 +394,7 @@ body{
     <div class="mantra-lbl">你的专属咒语</div>
     <div class="mantra-txt" id="mantraTxt"></div>
     <button class="mantra-close" onclick="closeMantra()">收下这份礼物 ✦</button>
+    <button class="mantra-save" id="mantraSaveBtn" onclick="downloadMantra()">🌹 保存为图片</button>
   </div>
 </div>
 
@@ -602,6 +610,68 @@ function extractMantra(text) {
   return m ? m[1].trim() : null;
 }
 
+window.downloadMantra = () => {
+  const text = S.mantra || document.getElementById('mantraTxt').textContent;
+  const btn = document.getElementById('mantraSaveBtn');
+  btn.textContent = '生成中…'; btn.disabled = true;
+
+  const W = 480, H = 360, DPR = 3;
+  const cv = document.createElement('canvas');
+  cv.width = W * DPR; cv.height = H * DPR;
+  const ctx = cv.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // rounded rect helper
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+  }
+
+  // background gradient — matches CSS exactly
+  const bg = ctx.createLinearGradient(0, 0, W*0.7, H);
+  bg.addColorStop(0, '#3D0C11'); bg.addColorStop(1, '#6B1A28');
+  rr(0,0,W,H,28); ctx.fillStyle = bg; ctx.fill();
+
+  // gold border
+  rr(1,1,W-2,H-2,27);
+  ctx.strokeStyle = 'rgba(201,169,110,0.25)'; ctx.lineWidth = 1; ctx.stroke();
+
+  const font = '-apple-system,PingFang SC,Hiragino Sans GB,Microsoft YaHei,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  // rose
+  ctx.font = '38px serif'; ctx.fillStyle = '#fff';
+  ctx.fillText('🌹', W/2, 74);
+
+  // label
+  ctx.font = `500 11px ${font}`; ctx.fillStyle = 'rgba(201,169,110,0.55)';
+  ctx.fillText('你的专属咒语', W/2, 122);
+
+  // mantra text with glow
+  ctx.font = `bold 26px ${font}`; ctx.fillStyle = '#C9A96E';
+  ctx.shadowColor = 'rgba(201,169,110,0.5)'; ctx.shadowBlur = 28;
+  const maxW = W - 90, lineH = 42;
+  const lines = [];
+  let cur = '';
+  for (const ch of text) {
+    if (ctx.measureText(cur+ch).width > maxW) { lines.push(cur); cur = ch; }
+    else cur += ch;
+  }
+  if (cur) lines.push(cur);
+  let ty = H/2 - (lines.length-1)*lineH/2 + 14;
+  for (const l of lines) { ctx.fillText(l, W/2, ty); ty += lineH; }
+  ctx.shadowBlur = 0;
+
+  const link = document.createElement('a');
+  link.download = '我的专属咒语.png';
+  link.href = cv.toDataURL('image/png');
+  link.click();
+  btn.textContent = '🌹 保存为图片'; btn.disabled = false;
+};
+
 window.closeMantra = () => {
   document.getElementById('mantraOv').classList.remove('on');
   if (S._pendingReport) {
@@ -741,7 +811,7 @@ async function send() {
       S.mantra = mantra;
       document.getElementById('mantraTxt').textContent = mantra;
       if (hasReport) S._pendingReport = reply; // 报告等咒语关闭后再显示
-      setTimeout(() => document.getElementById('mantraOv').classList.add('on'), 3000);
+      setTimeout(() => document.getElementById('mantraOv').classList.add('on'), 6500);
     }
 
     // Detect report
