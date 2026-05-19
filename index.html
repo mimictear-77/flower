@@ -646,10 +646,9 @@ function show(id) {
 }
 
 function fmt(t) {
-  // Replace mantra block with a soft indicator
-  t = t.replace(/===MANTRA_START===[\s\S]*?===MANTRA_END===/g, '<span style="cursor:pointer;color:var(--gold);text-decoration:underline dotted" onclick="reopenMantra()">〔 ✦ 点击重看你的专属咒语 ✦ 〕</span>');
   return t
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/===MANTRA_START===[\s\S]*?===MANTRA_END===/g, '<span style="cursor:pointer;color:var(--gold);text-decoration:underline dotted" onclick="reopenMantra()">〔 ✦ 点击重看你的专属咒语 ✦ 〕</span>')
     .replace(/\n/g,'<br>')
     .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
     .replace(/【(.*?)】/g,'<strong>【$1】</strong>');
