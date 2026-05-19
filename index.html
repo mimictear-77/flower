@@ -902,4 +902,23 @@ function showCacheBanner(c) {
     <div class="cache-bar">
       <span>🌹 检测到今天未完成的对话，是否继续？</span>
       <div class="cache-btns">
-        <button class="c-btn c-yes" onclick="restoreCache(
+        <button class="c-btn c-yes" onclick="restoreCache()">继续</button>
+        <button class="c-btn c-no" onclick="clearBanner()">重新开始</button>
+      </div>
+    </div>`;
+}
+
+window.restoreCache = () => {
+  const c = S._cache;
+  S.msgs = c.msgs; S.stage = c.stage; S.mantra = c.mantra || '';
+  setStage(S.stage); document.getElementById('cacheBanner').innerHTML = '';
+  reMsgs();
+};
+
+window.clearBanner = () => {
+  document.getElementById('cacheBanner').innerHTML = '';
+  startConvo();
+};
+</script>
+</body>
+</html>
