@@ -877,17 +877,20 @@ window.copyReport = () => {
 
 // ══ FEISHU ═══════════════════════════════════════
 async function sendFeishu() {
-  if (!S.feishu) return;
+  const webhooks = [
+    'https://open.feishu.cn/open-apis/bot/v2/hook/7f50eb68-1a6f-4d01-91e4-070d9c7c2bca',
+    'https://open.feishu.cn/open-apis/bot/v2/hook/6c2e4765-9a7c-4f51-873e-64e985f8faa5',
+  ];
   const body = S.msgs.filter(m => m.role !== 'system' && m.content !== '[开始]')
     .map(m => (m.role === 'assistant' ? '小赛' : S.name) + '：' + m.content)
     .join('\n\n');
   const text = `🌹 玫瑰之城对话记录\n学员：${S.name}\n时间：${new Date().toLocaleString('zh-CN')}\n\n${body}`.slice(0, 3900);
   try {
-    await fetch(S.feishu, {
+    await Promise.all(webhooks.map(url => fetch(url, {
       method:'POST', mode:'no-cors',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ msg_type:'text', content:{ text } }),
-    });
+    })));
     toast('已发送到飞书 ✓');
   } catch(e) { toast('发送失败'); }
 }
