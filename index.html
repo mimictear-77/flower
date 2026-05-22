@@ -391,7 +391,7 @@ body{
 <div id="mantraOv">
   <div class="mantra-card">
     <div class="mantra-deco">🌹</div>
-    <div class="mantra-lbl">你的专属咒语</div>
+    <div class="mantra-lbl">你的专属曼特罗（Mantra）</div>
     <div class="mantra-txt" id="mantraTxt"></div>
     <button class="mantra-close" onclick="closeMantra()">收下这份礼物 ✦</button>
     <button class="mantra-save" id="mantraSaveBtn" onclick="downloadMantra()">🌹 保存为图片</button>
@@ -431,7 +431,7 @@ function buildSys(name) {
 2. 精准定锚：只能在以下三个"灵魂时刻"呼唤她的名字：
    - 初次见面时（第一句欢迎语）。
    - 阶段三的深度抱持时（当她诉说童年创伤或深层委屈，你需要接住她时）。
-   - 阶段四的最终定锚时（最后送给她那句生生不息的咒语时）。
+   - 阶段四的最终定锚时（最后送给她那句生生不息的曼特罗时）。
    呼唤名字时，要有大地母亲般的温柔与郑重。
 
 【小赛的自称法则】：
@@ -493,7 +493,7 @@ function buildSys(name) {
 
 第一步（模式看见）：
 帮学员把"当下的场景"与"过去的源代码"连接起来。告诉她：你只是在重温旧梦，那个小女孩/小男孩的痛，在这个当下被唤醒了。
-输出完毕必须停顿，问："你能看到这个连接吗？"等待回应。
+输出完毕必须停顿，问："你看到了它们之间的联系么？"等待回应。
 
 第二步（现实转念）：
 告诉学员，现在的你已经长大了，如何从这个旧剧本里退出来。用成人的力量，给当下的事件一个全新的视角。
@@ -501,14 +501,14 @@ function buildSys(name) {
 
 第三步（疗愈定锚）：
 1. 引导学员看到，那个一直保护她的机制（即使是愤怒），背后有着极美的正向意图。
-2. （呼唤一次她的名字），为她定制一句"生生不息的咒语（Mantra）"，20字以内。
+2. （呼唤一次她的名字），为她定制一句"生生不息的曼特罗（Mantra）"，20字以内。
 
-⚠️ 输出咒语时，必须严格使用以下标记格式包裹咒语本身：
+⚠️ 输出曼特罗时，必须严格使用以下标记格式包裹曼特罗本身：
 ===MANTRA_START===
-（咒语正文，20字以内）
+（曼特罗正文，20字以内）
 ===MANTRA_END===
 
-咒语前后可以有解释文字，但咒语本身必须且只能在两个标记之间。
+曼特罗前后可以有解释文字，但曼特罗本身必须且只能在两个标记之间。
 
 3. 建议她闻一种具体的植物香气（如岩兰草、薰衣草等），将这句话和身体定锚。
 4. 给予一个深切的、大地般的抱持，结束本阶段探索，然后立即直接输出阶段五的完整报告，不需要询问学员是否需要报告。
@@ -532,7 +532,7 @@ function buildSys(name) {
 - 🏔 **冰山底座（深层渴望）**：（一句话总结深层渴望）
 - 🌱 **旧日剧本（模式溯源）**：（一句话总结童年/过去的源头）
 - 🏛 **建城图纸（现实转念）**：（一句话总结今天的破局新视角）
-- ⭐ **生生不息（专属咒语）**：（原封不动重复阶段四的那句咒语）
+- ⭐ **生生不息（专属曼特罗）**：（原封不动重复阶段四的那句曼特罗）
 
 ---
 
@@ -559,7 +559,7 @@ function buildSys(name) {
 ───
 
 听懂了吗？如果听懂了，请绝对不要输出任何多余的废话，直接用以下这句话作为开场白（注意已替换名字）：
-"${name}，你准备好了吗？请告诉我，你想探索什么具体的场景和情绪，可以是最近发生的事件，也可以是任何一段你放不下的过往，你可以说一切你想说的话，小赛在这里静静地听。"`;
+"${name}，你准备好了吗？请告诉我，你想聊些什么，任何让你开心或者烦恼的事情都可以，你可以说一切你想说的话，小赛在这里静静地听。"`;
 }
 
 // ══ API ══════════════════════════════════════════
@@ -582,7 +582,7 @@ async function callAI(messages) {
 const STAGE_KW = {
   2: ['渴望','冰山','底层藏着','呼唤的渴望','Yearnings'],
   3: ['童年','过去的时光','源代码','旧剧本','记忆中','轻轻触碰'],
-  4: ['模式看见','现实转念','疗愈定锚','你能看到这个连接','这个新的视角','你只是在重温'],
+  4: ['模式看见','现实转念','疗愈定锚','你看到了它们之间的联系','这个新的视角','你只是在重温'],
 };
 const STAGE_NAMES = ['场景收集','触碰渴望','源码回溯','整合转化'];
 
@@ -647,7 +647,7 @@ window.downloadMantra = () => {
 
   // label
   ctx.font = `500 11px ${font}`; ctx.fillStyle = 'rgba(201,169,110,0.55)';
-  ctx.fillText('你的专属咒语', W/2, 122);
+  ctx.fillText('你的专属曼特罗（Mantra）', W/2, 122);
 
   // mantra text with glow
   ctx.font = `bold 26px ${font}`; ctx.fillStyle = '#C9A96E';
@@ -665,7 +665,7 @@ window.downloadMantra = () => {
   ctx.shadowBlur = 0;
 
   const link = document.createElement('a');
-  link.download = '我的专属咒语.png';
+  link.download = '我的专属曼特罗.png';
   link.href = cv.toDataURL('image/png');
   link.click();
   btn.textContent = '🌹 保存为图片'; btn.disabled = false;
@@ -717,7 +717,7 @@ function show(id) {
 function fmt(t) {
   return t
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/===MANTRA_START===[\s\S]*?===MANTRA_END===/g, '<span style="cursor:pointer;color:var(--gold);text-decoration:underline dotted" onclick="reopenMantra()">〔 ✦ 点击重看你的专属咒语 ✦ 〕</span>')
+    .replace(/===MANTRA_START===[\s\S]*?===MANTRA_END===/g, '<span style="cursor:pointer;color:var(--gold);text-decoration:underline dotted" onclick="reopenMantra()">〔 ✦ 点击重看你的专属曼特罗 ✦ 〕</span>')
     .replace(/\n/g,'<br>')
     .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
     .replace(/【(.*?)】/g,'<strong>【$1】</strong>');
