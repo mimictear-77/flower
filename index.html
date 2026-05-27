@@ -992,7 +992,7 @@ window.clearBanner = () => {
 
   const btn = () => document.getElementById('micBtn');
   let active = false, ws = null, audioCtx = null, mediaStream = null, processor = null, source = null;
-  let resultText = '', frameStatus = 0, stopTimer = null;
+  let resultText = '', frameStatus = 0, stopTimer = null, lastSegLen = 0;
 
   // 从后端获取签名后的 WebSocket URL（密钥不暴露到前端）
   async function buildWsUrl() {
@@ -1050,9 +1050,10 @@ window.clearBanner = () => {
         audio: {channelCount:1, echoCancellation:true, noiseSuppression:true}
       });
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      await audioCtx.resume(); // iOS Safari 需要手动唤醒
       source    = audioCtx.createMediaStreamSource(mediaStream);
       processor = audioCtx.createScriptProcessor(4096, 1, 1);
-      frameStatus = 0; resultText = '';
+      frameStatus = 0; resultText = ''; lastSegLen = 0;
 
       ws = new WebSocket(url);
 
@@ -1079,8 +1080,14 @@ window.clearBanner = () => {
         const d = JSON.parse(e.data);
         if (d.code !== 0) { toast('识别出错 ' + d.code); stopAll(); return; }
         if (d.data?.result?.ws) {
-          const chunk = d.data.result.ws.map(w => w.cw.map(c => c.w).join('')).join('');
-          resultText += chunk;
+          const seg = d.data.result.ws.map(w => w.cw.map(c => c.w).join('')).join('');
+          // pgs=rpl 表示替换上一段，pgs=apd 表示追加
+          if (d.data.result.pgs === 'rpl') {
+            resultText = resultText.slice(0, resultText.length - lastSegLen) + seg;
+          } else {
+            resultText += seg;
+          }
+          lastSegLen = seg.length;
           const ta = document.getElementById('chatTA');
           ta.value = resultText;
           autoH(ta);
