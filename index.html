@@ -1002,87 +1002,136 @@ window.clearBanner = () => {
   startConvo();
 };
 
-// ─── 语音输入 ───
+// ─── 讯飞语音识别 ───
 (function(){
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const XF = {
+    appId:     'c82136a6',
+    apiKey:    'db5aad5da99b6e81a5df782df7d274d8',
+    apiSecret: 'ZjRmNzlmOWY3YmI2ZDg0NTRmYTBmMmY5',
+  };
+
   const btn = () => document.getElementById('micBtn');
-  if (!SR) { const b = btn(); if (b) b.style.display = 'none'; return; }
+  let active = false, ws = null, audioCtx = null, mediaStream = null, processor = null, source = null;
+  let resultText = '', frameStatus = 0, stopTimer = null;
 
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const zhLangs = ['zh-CN', 'zh', 'cmn-Hans-CN'];
-  let langIdx = 0;
-  let active = false;
-  let autoRetry = false; // 首次授权后自动重试标志
+  // HMAC-SHA256 签名（Web Crypto API，全平台支持）
+  async function hmac(secret, msg) {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', enc.encode(secret), {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg));
+    return btoa(String.fromCharCode(...new Uint8Array(sig)));
+  }
 
-  function startRec() {
-    const r = new SR();
-    r.lang = zhLangs[langIdx];
-    r.continuous = false;
-    r.interimResults = !isIOS;
+  async function buildWsUrl() {
+    const host = 'iat-api.xfyun.cn';
+    const date = new Date().toUTCString();
+    const sig = await hmac(XF.apiSecret, `host: ${host}\ndate: ${date}\nGET /v2/iat HTTP/1.1`);
+    const auth = btoa(`api_key="${XF.apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${sig}"`);
+    return `wss://${host}/v2/iat?authorization=${encodeURIComponent(auth)}&date=${encodeURIComponent(date)}&host=${host}`;
+  }
 
-    r.onresult = (e) => {
-      autoRetry = false;
-      let final = '', interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) final += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
-      }
-      const ta = document.getElementById('chatTA');
-      ta.value = final || interim;
-      autoH(ta);
-    };
+  // Float32 → Int16 PCM → Base64
+  function pcmBase64(f32) {
+    const i16 = new Int16Array(f32.length);
+    for (let i = 0; i < f32.length; i++)
+      i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32767));
+    const bytes = new Uint8Array(i16.buffer);
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 8192)
+      s += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    return btoa(s);
+  }
 
-    r.onend = () => {
-      active = false;
-      const b = btn();
-      if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
-    };
+  // 降采样到 16000Hz
+  function resample(buf, fromRate) {
+    if (fromRate === 16000) return buf;
+    const out = new Float32Array(Math.floor(buf.length * 16000 / fromRate));
+    const ratio = fromRate / 16000;
+    for (let i = 0; i < out.length; i++) out[i] = buf[Math.round(i * ratio)];
+    return out;
+  }
 
-    r.onerror = (e) => {
-      active = false;
-      const b = btn();
-      if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
+  function stopAll() {
+    active = false;
+    clearTimeout(stopTimer);
+    if (processor) { try { processor.disconnect(); } catch(e){} processor = null; }
+    if (source)    { try { source.disconnect(); }    catch(e){} source = null; }
+    if (audioCtx)  { try { audioCtx.close(); }       catch(e){} audioCtx = null; }
+    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    if (ws && ws.readyState < 2) { try { ws.close(); } catch(e){} }
+    ws = null;
+    const b = btn();
+    if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
+  }
 
-      if (e.error === 'aborted' && autoRetry) {
-        // 首次授权后被中断，自动重启
-        autoRetry = false;
-        setTimeout(() => window.toggleMic(), 300);
-        return;
-      }
-      if (e.error === 'language-not-supported') {
-        if (langIdx < zhLangs.length - 1) {
-          langIdx++;
-          setTimeout(() => window.toggleMic(), 150);
-        } else {
-          toast('浏览器不支持中文语音，请用 Chrome');
+  function sendEnd() {
+    if (ws && ws.readyState === 1)
+      ws.send(JSON.stringify({data:{status:2, format:'audio/L16;rate=16000', encoding:'raw', audio:''}}));
+  }
+
+  async function start() {
+    try {
+      const url = await buildWsUrl();
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {channelCount:1, echoCancellation:true, noiseSuppression:true}
+      });
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      source    = audioCtx.createMediaStreamSource(mediaStream);
+      processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      frameStatus = 0; resultText = '';
+
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+        processor.onaudioprocess = (e) => {
+          if (!ws || ws.readyState !== 1) return;
+          const pcm   = resample(e.inputBuffer.getChannelData(0), audioCtx.sampleRate);
+          const audio = pcmBase64(pcm);
+          const msg   = { data: { status: frameStatus ? 1 : 0, format:'audio/L16;rate=16000', encoding:'raw', audio } };
+          if (!frameStatus) {
+            msg.common   = { app_id: XF.appId };
+            msg.business = { language:'zh_cn', domain:'iat', accent:'mandarin', vad_eos:2000 };
+            frameStatus  = 1;
+          }
+          ws.send(JSON.stringify(msg));
+        };
+        // 最长60秒自动停止
+        stopTimer = setTimeout(() => { sendEnd(); setTimeout(stopAll, 800); }, 60000);
+      };
+
+      ws.onmessage = (e) => {
+        const d = JSON.parse(e.data);
+        if (d.code !== 0) { toast('识别出错 ' + d.code); stopAll(); return; }
+        if (d.data?.result?.ws) {
+          const chunk = d.data.result.ws.map(w => w.cw.map(c => c.w).join('')).join('');
+          resultText += chunk;
+          const ta = document.getElementById('chatTA');
+          ta.value = resultText;
+          autoH(ta);
         }
-      } else if (e.error === 'not-allowed') {
-        toast('请在设置中允许麦克风权限后重试');
-      } else if (e.error === 'network') {
-        toast('语音识别需要网络，请检查网络连接');
-      } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
-        toast('语音出错：' + e.error);
-      }
-    };
+        if (d.data?.status === 2) stopAll();
+      };
 
-    try { r.start(); } catch(err) {}
+      ws.onerror = () => { toast('语音连接失败，请重试'); stopAll(); };
+      ws.onclose = () => { if (active) stopAll(); };
+
+    } catch(err) {
+      toast(err.name === 'NotAllowedError' ? '请允许麦克风权限后重试' : '语音启动失败：' + err.message);
+      stopAll();
+    }
   }
 
   window.toggleMic = () => {
-    const b = btn();
-    if (active) {
-      active = false;
-      return;
-    }
-    if (location.protocol === 'file:') {
-      toast('请通过网址访问，本地文件不支持语音');
-      return;
-    }
+    if (active) { sendEnd(); setTimeout(stopAll, 600); return; }
+    if (location.protocol === 'file:') { toast('请通过网址访问，本地文件不支持语音'); return; }
+    resultText = '';
     document.getElementById('chatTA').value = '';
     active = true;
-    autoRetry = true; // 开启自动重试（应对首次授权中断）
+    const b = btn();
     if (b) { b.textContent = '🔴'; b.classList.add('recording'); }
-    startRec();
+    start();
   };
 })();
 </script>
