@@ -1095,8 +1095,13 @@ window.clearBanner = () => {
         if (d.data?.status === 2) stopAll();
       };
 
-      ws.onerror = () => { toast('语音连接失败，请重试'); stopAll(); };
-      ws.onclose = () => { if (active) stopAll(); };
+      ws.onerror = () => { /* 等 onclose 显示详细原因 */ };
+      ws.onclose = (ev) => {
+        if (ev.code === 1000) { if (active) stopAll(); return; }
+        const reason = ev.reason || ('code:' + ev.code);
+        toast('语音断开：' + reason);
+        stopAll();
+      };
 
     } catch(err) {
       toast(err.name === 'NotAllowedError' ? '请允许麦克风权限后重试' : '语音启动失败：' + err.message);
