@@ -1008,16 +1008,17 @@ window.clearBanner = () => {
   const btn = () => document.getElementById('micBtn');
   if (!SR) { const b = btn(); if (b) b.style.display = 'none'; return; }
 
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const zhLangs = ['zh-CN', 'zh', 'cmn-Hans-CN'];
   let langIdx = 0;
   let active = false;
-  let rec = null;
 
-  function makeRec() {
+  function startRec() {
+    // 每次都新建实例（iOS Safari 必须）
     const r = new SR();
     r.lang = zhLangs[langIdx];
     r.continuous = false;
-    r.interimResults = true;
+    r.interimResults = !isIOS; // iOS 不支持实时结果
 
     r.onresult = (e) => {
       let final = '', interim = '';
@@ -1037,43 +1038,43 @@ window.clearBanner = () => {
     };
 
     r.onerror = (e) => {
-      if (e.error === 'language-not-supported') {
-        if (langIdx < zhLangs.length - 1) {
-          langIdx++;
-          active = false;
-          rec = makeRec();
-          setTimeout(() => window.toggleMic(), 150);
-        } else {
-          active = false;
-          const b = btn();
-          if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
-          toast('请使用 Chrome 浏览器以支持中文语音');
-        }
-        return;
-      }
       active = false;
       const b = btn();
       if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
-      if (e.error === 'not-allowed') toast('请允许麦克风权限后重试');
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') toast('语音出错，请用 Chrome 重试');
+      if (e.error === 'language-not-supported') {
+        if (langIdx < zhLangs.length - 1) {
+          langIdx++;
+          setTimeout(() => window.toggleMic(), 150);
+        } else {
+          toast('浏览器不支持中文语音，请换用 Chrome');
+        }
+      } else if (e.error === 'not-allowed') {
+        toast('请在浏览器设置中允许麦克风权限');
+      } else if (e.error === 'network') {
+        toast('语音需要网络连接，请检查网络');
+      } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        toast('语音出错：' + e.error);
+      }
     };
 
+    try { r.start(); } catch(e) {}
     return r;
   }
 
-  rec = makeRec();
-
   window.toggleMic = () => {
-    if (active) { rec.stop(); return; }
-    document.getElementById('chatTA').value = '';
-    try {
-      rec.start();
-      active = true;
-      const b = btn();
-      if (b) { b.textContent = '🔴'; b.classList.add('recording'); }
-    } catch(e) {
-      rec = makeRec();
+    const b = btn();
+    if (active) {
+      active = false;
+      return;
     }
+    if (location.protocol === 'file:') {
+      toast('请通过网址访问，本地文件不支持语音');
+      return;
+    }
+    document.getElementById('chatTA').value = '';
+    active = true;
+    if (b) { b.textContent = '🔴'; b.classList.add('recording'); }
+    startRec();
   };
 })();
 </script>
