@@ -1104,12 +1104,7 @@ window.clearBanner = () => {
       };
 
       ws.onerror = () => { /* 等 onclose 显示详细原因 */ };
-      ws.onclose = (ev) => {
-        if (ev.code === 1000) { if (active) stopAll(); return; }
-        const reason = ev.reason || ('code:' + ev.code);
-        toast('语音断开：' + reason);
-        stopAll();
-      };
+      ws.onclose = () => { stopAll(); };
 
     } catch(err) {
       toast(err.name === 'NotAllowedError' ? '请允许麦克风权限后重试' : '语音启动失败：' + err.message);
