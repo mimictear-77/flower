@@ -1007,51 +1007,73 @@ window.clearBanner = () => {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const btn = () => document.getElementById('micBtn');
   if (!SR) { const b = btn(); if (b) b.style.display = 'none'; return; }
-  const rec = new SR();
-  rec.continuous = false;
-  rec.interimResults = true;
-  let active = false;
-  const fallbackLangs = [navigator.language, 'zh-CN', 'zh', 'cmn-Hans-CN', ''];
+
+  const zhLangs = ['zh-CN', 'zh', 'cmn-Hans-CN'];
   let langIdx = 0;
-  rec.lang = fallbackLangs[0];
+  let active = false;
+  let rec = null;
 
-  rec.onresult = (e) => {
-    let final = '', interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) final += e.results[i][0].transcript;
-      else interim += e.results[i][0].transcript;
-    }
-    const ta = document.getElementById('chatTA');
-    ta.value = final || interim;
-    autoH(ta);
-  };
+  function makeRec() {
+    const r = new SR();
+    r.lang = zhLangs[langIdx];
+    r.continuous = false;
+    r.interimResults = true;
 
-  const stop = () => {
-    active = false;
-    const b = btn();
-    if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
-  };
+    r.onresult = (e) => {
+      let final = '', interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      const ta = document.getElementById('chatTA');
+      ta.value = final || interim;
+      autoH(ta);
+    };
 
-  rec.onend = stop;
-  rec.onerror = (e) => {
-    if (e.error === 'language-not-supported' && langIdx < fallbackLangs.length - 1) {
-      langIdx++;
-      rec.lang = fallbackLangs[langIdx];
+    r.onend = () => {
       active = false;
-      setTimeout(() => window.toggleMic(), 100);
-      return;
-    }
-    stop();
-    if (e.error !== 'no-speech' && e.error !== 'aborted') toast('语音识别出错：' + e.error);
-  };
+      const b = btn();
+      if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
+    };
+
+    r.onerror = (e) => {
+      if (e.error === 'language-not-supported') {
+        if (langIdx < zhLangs.length - 1) {
+          langIdx++;
+          active = false;
+          rec = makeRec();
+          setTimeout(() => window.toggleMic(), 150);
+        } else {
+          active = false;
+          const b = btn();
+          if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
+          toast('请使用 Chrome 浏览器以支持中文语音');
+        }
+        return;
+      }
+      active = false;
+      const b = btn();
+      if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
+      if (e.error === 'not-allowed') toast('请允许麦克风权限后重试');
+      else if (e.error !== 'no-speech' && e.error !== 'aborted') toast('语音出错，请用 Chrome 重试');
+    };
+
+    return r;
+  }
+
+  rec = makeRec();
 
   window.toggleMic = () => {
     if (active) { rec.stop(); return; }
     document.getElementById('chatTA').value = '';
-    rec.start();
-    active = true;
-    const b = btn();
-    if (b) { b.textContent = '🔴'; b.classList.add('recording'); }
+    try {
+      rec.start();
+      active = true;
+      const b = btn();
+      if (b) { b.textContent = '🔴'; b.classList.add('recording'); }
+    } catch(e) {
+      rec = makeRec();
+    }
   };
 })();
 </script>
