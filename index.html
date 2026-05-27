@@ -1012,15 +1012,16 @@ window.clearBanner = () => {
   const zhLangs = ['zh-CN', 'zh', 'cmn-Hans-CN'];
   let langIdx = 0;
   let active = false;
+  let autoRetry = false; // 首次授权后自动重试标志
 
   function startRec() {
-    // 每次都新建实例（iOS Safari 必须）
     const r = new SR();
     r.lang = zhLangs[langIdx];
     r.continuous = false;
-    r.interimResults = !isIOS; // iOS 不支持实时结果
+    r.interimResults = !isIOS;
 
     r.onresult = (e) => {
+      autoRetry = false;
       let final = '', interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) final += e.results[i][0].transcript;
@@ -1041,24 +1042,30 @@ window.clearBanner = () => {
       active = false;
       const b = btn();
       if (b) { b.textContent = '🎤'; b.classList.remove('recording'); }
+
+      if (e.error === 'aborted' && autoRetry) {
+        // 首次授权后被中断，自动重启
+        autoRetry = false;
+        setTimeout(() => window.toggleMic(), 300);
+        return;
+      }
       if (e.error === 'language-not-supported') {
         if (langIdx < zhLangs.length - 1) {
           langIdx++;
           setTimeout(() => window.toggleMic(), 150);
         } else {
-          toast('浏览器不支持中文语音，请换用 Chrome');
+          toast('浏览器不支持中文语音，请用 Chrome');
         }
       } else if (e.error === 'not-allowed') {
-        toast('请在浏览器设置中允许麦克风权限');
+        toast('请在设置中允许麦克风权限后重试');
       } else if (e.error === 'network') {
-        toast('语音需要网络连接，请检查网络');
+        toast('语音识别需要网络，请检查网络连接');
       } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
         toast('语音出错：' + e.error);
       }
     };
 
-    try { r.start(); } catch(e) {}
-    return r;
+    try { r.start(); } catch(err) {}
   }
 
   window.toggleMic = () => {
@@ -1073,6 +1080,7 @@ window.clearBanner = () => {
     }
     document.getElementById('chatTA').value = '';
     active = true;
+    autoRetry = true; // 开启自动重试（应对首次授权中断）
     if (b) { b.textContent = '🔴'; b.classList.add('recording'); }
     startRec();
   };
