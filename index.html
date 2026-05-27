@@ -337,12 +337,6 @@ body{
         <button class="api-tab" id="tabGM" onclick="selApi('gm')">Gemini 中转</button>
         <button class="api-tab sel" id="tabDS" onclick="selApi('ds')">DeepSeek</button>
       </div>
-      <div id="gmUrlWrap" style="display:none">
-        <span class="api-lbl">Gemini 中转地址</span>
-        <input class="api-input" id="iGmUrl" type="text" placeholder="https://api.viviai.cc" value="https://api.viviai.cc">
-      </div>
-      <span class="api-lbl" style="margin-top:4px">API Key</span>
-      <input class="api-input" id="iKey" type="password" placeholder="sk-..." value="sk-a70c9fa165e848e2938bdc376f06fa77">
       <span class="api-lbl" style="margin-top:4px">飞书 Webhook（可选）</span>
       <input class="api-input" id="iFeishu" type="text" placeholder="https://open.feishu.cn/..." value="https://open.feishu.cn/open-apis/bot/v2/hook/6c2e4765-9a7c-4f51-873e-64e985f8faa5">
     </div>
@@ -420,14 +414,12 @@ body{
 <script>
 // ══ CONFIG ══════════════════════════════════════
 const CFG = {
-  gm: { base:'https://api.viviai.cc', model:'gemini-2.5-pro', key:'sk-nwB3wT0fGOfBSe1igRhPrOS4nwLP5m6n0i04oO8viaT7S83a' },
-  ds: { base:'https://api.deepseek.com', model:'deepseek-chat', key:'sk-a70c9fa165e848e2938bdc376f06fa77' },
   feishu:'https://open.feishu.cn/open-apis/bot/v2/hook/6c2e4765-9a7c-4f51-873e-64e985f8faa5',
 };
 
 // ══ STATE ════════════════════════════════════════
 const S = {
-  name:'', apiType:'ds', apiKey:'', gmBase:'', feishu: CFG.feishu,
+  name:'', apiType:'ds', feishu: CFG.feishu,
   msgs:[], stage:1, mantra:'', busy:false,
 };
 
@@ -574,12 +566,10 @@ function buildSys(name) {
 
 // ══ API ══════════════════════════════════════════
 async function callAI(messages) {
-  const c = CFG[S.apiType];
-  const base = S.apiType === 'gm' ? S.gmBase : c.base;
-  const r = await fetch(base + '/v1/chat/completions', {
+  const r = await fetch('/.netlify/functions/chat', {
     method: 'POST',
-    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + S.apiKey },
-    body: JSON.stringify({ model: c.model, max_tokens: 2048, messages }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiType: S.apiType, messages }),
   });
   if (!r.ok) {
     const e = await r.json().catch(()=>({}));
@@ -912,10 +902,8 @@ window.goName = () => { show('sName'); startMusic(); };
 window.doStart = () => {
   const name = document.getElementById('iName').value.trim();
   if (!name) { toast('请告诉我你的名字'); return; }
-  const key = document.getElementById('iKey').value.trim() || CFG[S.apiType].key;
   const feishu = document.getElementById('iFeishu').value.trim();
-  const gmBase = document.getElementById('iGmUrl').value.trim();
-  S.name = name; S.apiKey = key; S.feishu = feishu || CFG.feishu; S.gmBase = gmBase;
+  S.name = name; S.feishu = feishu || CFG.feishu;
 
   // Transition
   document.getElementById('transName').textContent = name.toUpperCase();
@@ -939,10 +927,6 @@ window.selApi = (t) => {
   S.apiType = t;
   document.getElementById('tabGM').classList.toggle('sel', t === 'gm');
   document.getElementById('tabDS').classList.toggle('sel', t === 'ds');
-  document.getElementById('gmUrlWrap').style.display = t === 'gm' ? 'block' : 'none';
-  document.getElementById('iGmUrl').value = CFG.gm.base;
-  document.getElementById('iKey').value = CFG[t].key;
-  document.getElementById('iKey').placeholder = t === 'ds' ? 'sk-...' : '你的 Gemini API Key';
 };
 
 // ══ MUSIC ════════════════════════════════════════
@@ -1004,31 +988,21 @@ window.clearBanner = () => {
 
 // ─── 讯飞语音识别 ───
 (function(){
-  const XF = {
-    appId:     'c82136a6',
-    apiKey:    'db5aad5da99b6e81a5df782df7d274d8',
-    apiSecret: 'ZjRmNzlmOWY3YmI2ZDg0NTRmYTBmMmY5',
-  };
+  // 讯飞密钥已移至后端，前端只请求签名后的 URL
 
   const btn = () => document.getElementById('micBtn');
   let active = false, ws = null, audioCtx = null, mediaStream = null, processor = null, source = null;
   let resultText = '', frameStatus = 0, stopTimer = null;
 
-  // HMAC-SHA256 签名（Web Crypto API，全平台支持）
-  async function hmac(secret, msg) {
-    const enc = new TextEncoder();
-    const key = await crypto.subtle.importKey('raw', enc.encode(secret), {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
-    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg));
-    return btoa(String.fromCharCode(...new Uint8Array(sig)));
-  }
-
+  // 从后端获取签名后的 WebSocket URL（密钥不暴露到前端）
   async function buildWsUrl() {
-    const host = 'iat-api.xfyun.cn';
-    const date = new Date().toUTCString();
-    const sig = await hmac(XF.apiSecret, `host: ${host}\ndate: ${date}\nGET /v2/iat HTTP/1.1`);
-    const auth = btoa(`api_key="${XF.apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${sig}"`);
-    return `wss://${host}/v2/iat?authorization=${encodeURIComponent(auth)}&date=${encodeURIComponent(date)}&host=${host}`;
+    const resp = await fetch('/.netlify/functions/xf-auth');
+    if (!resp.ok) throw new Error('获取语音授权失败');
+    const { url, appId } = await resp.json();
+    _appId = appId;
+    return url;
   }
+  let _appId = '';
 
   // Float32 → Int16 PCM → Base64
   function pcmBase64(f32) {
@@ -1091,7 +1065,7 @@ window.clearBanner = () => {
           const audio = pcmBase64(pcm);
           const msg   = { data: { status: frameStatus ? 1 : 0, format:'audio/L16;rate=16000', encoding:'raw', audio } };
           if (!frameStatus) {
-            msg.common   = { app_id: XF.appId };
+            msg.common   = { app_id: _appId };
             msg.business = { language:'zh_cn', domain:'iat', accent:'mandarin', vad_eos:2000 };
             frameStatus  = 1;
           }
