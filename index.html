@@ -1049,7 +1049,12 @@ window.clearBanner = () => {
       mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {channelCount:1, echoCancellation:true, noiseSuppression:true}
       });
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // 尝试直接以 16000Hz 创建，避免手动降采样失真
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 16000});
+      } catch(e) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
       await audioCtx.resume(); // iOS Safari 需要手动唤醒
       source    = audioCtx.createMediaStreamSource(mediaStream);
       processor = audioCtx.createScriptProcessor(4096, 1, 1);
@@ -1058,11 +1063,14 @@ window.clearBanner = () => {
       ws = new WebSocket(url);
 
       ws.onopen = () => {
+        toast('🎤 已连接，请说话…');
         source.connect(processor);
         processor.connect(audioCtx.destination);
         processor.onaudioprocess = (e) => {
           if (!ws || ws.readyState !== 1) return;
-          const pcm   = resample(e.inputBuffer.getChannelData(0), audioCtx.sampleRate);
+          const raw   = e.inputBuffer.getChannelData(0);
+          // 若 AudioContext 已是 16000Hz 则直接用，否则降采样
+          const pcm   = audioCtx.sampleRate === 16000 ? raw : resample(raw, audioCtx.sampleRate);
           const audio = pcmBase64(pcm);
           const msg   = { data: { status: frameStatus ? 1 : 0, format:'audio/L16;rate=16000', encoding:'raw', audio } };
           if (!frameStatus) {
@@ -1078,7 +1086,7 @@ window.clearBanner = () => {
 
       ws.onmessage = (e) => {
         const d = JSON.parse(e.data);
-        if (d.code !== 0) { toast('识别出错 ' + d.code); stopAll(); return; }
+        if (d.code !== 0) { toast('识别出错 ' + d.code + (d.message ? ':'+d.message : '')); stopAll(); return; }
         if (d.data?.result?.ws) {
           const seg = d.data.result.ws.map(w => w.cw.map(c => c.w).join('')).join('');
           // pgs=rpl 表示替换上一段，pgs=apd 表示追加
