@@ -162,6 +162,35 @@ body{
   color:var(--white);border-radius:18px 4px 18px 18px;
 }
 .chat-hint{font-size:12px;color:var(--t3);margin:4px 0 0 46px;font-style:italic;line-height:1.6}
+
+/* ─── Stage Dividers ─── */
+.stage-div{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 0 4px;margin:4px 0;
+}
+.stage-div::before,.stage-div::after{content:'';flex:1;height:1px}
+.stage-div::before{background:linear-gradient(90deg,transparent,rgba(196,104,124,.25))}
+.stage-div::after{background:linear-gradient(90deg,rgba(196,104,124,.25),transparent)}
+.stage-div-lbl{
+  font-size:11.5px;color:var(--rose-d);letter-spacing:1.5px;
+  white-space:nowrap;padding:5px 16px;
+  border:1px solid rgba(196,104,124,.28);border-radius:100px;
+  background:rgba(255,255,255,.65);backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);font-weight:500;
+}
+/* ─── Back Button ─── */
+.back-btn{
+  position:fixed;bottom:90px;right:16px;
+  width:40px;height:40px;
+  background:rgba(255,248,245,.92);border:1px solid var(--rose-l);
+  border-radius:50%;display:none;align-items:center;justify-content:center;
+  cursor:pointer;font-size:15px;
+  box-shadow:0 2px 14px rgba(139,38,53,.13);
+  z-index:48;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  transition:all .2s;color:var(--rose-d);
+}
+.back-btn.vis{display:flex}
+.back-btn:hover{background:var(--rose-l);transform:scale(1.08)}
 .ld-wrap{display:flex;gap:10px}
 .ld-bub{
   padding:14px 18px;background:var(--white);border:1px solid var(--rose-l);
@@ -371,6 +400,8 @@ body{
     <div id="cacheBanner"></div>
     <div class="msgs" id="msgs"></div>
   </div>
+
+  <button class="back-btn" id="backBtn" onclick="goBack()" title="返回上一幕">↑</button>
 
   <div class="chat-ia">
     <div class="chat-ia-inner">
@@ -585,6 +616,7 @@ const STAGE_KW = {
   4: ['模式看见','现实转念','疗愈定锚','你看到了它们之间的联系','这个新的视角','你只是在重温'],
 };
 const STAGE_NAMES = ['场景收集','触碰渴望','源码回溯','整合转化'];
+const STAGE_FULL  = ['第一幕 · 波澜','第二幕 · 深海','第三幕 · 回溯','第四幕 · 唤醒'];
 
 function detectStage(text) {
   for (const s of [4,3,2]) {
@@ -602,6 +634,31 @@ function setStage(n) {
     d.className = 'sd' + (i < n ? ' ok' : i === n ? ' on' : '');
   }
 }
+
+function insertStageDivider(n) {
+  const wrap = document.getElementById('msgs');
+  const d = document.createElement('div');
+  d.className = 'stage-div';
+  d.dataset.stage = n;
+  d.innerHTML = `<div class="stage-div-lbl">✦ ${STAGE_FULL[n - 1] || ''} ✦</div>`;
+  wrap.appendChild(d);
+  if (n > 1) document.getElementById('backBtn').classList.add('vis');
+}
+
+window.goBack = () => {
+  const divs = [...document.querySelectorAll('#msgs .stage-div')];
+  if (!divs.length) return;
+  const scrollTop = window.scrollY;
+  const headerH = 108; // fixed header height
+  let target = null;
+  for (let i = divs.length - 1; i >= 0; i--) {
+    const elTop = divs[i].getBoundingClientRect().top + scrollTop;
+    if (elTop < scrollTop - 60) { target = divs[i]; break; }
+  }
+  if (!target) target = divs[0];
+  const elTop = target.getBoundingClientRect().top + scrollTop;
+  window.scrollTo({ top: Math.max(0, elTop - headerH), behavior: 'smooth' });
+};
 
 // ══ MANTRA ═══════════════════════════════════════
 function extractMantra(text) {
@@ -756,9 +813,24 @@ function scroll() { setTimeout(()=>window.scrollTo({top:document.body.scrollHeig
 
 function reMsgs() {
   document.getElementById('msgs').innerHTML = '';
+  const backBtn = document.getElementById('backBtn');
+  if (backBtn) backBtn.classList.remove('vis');
+  let rStage = 0;
+
   S.msgs.filter(m => m.role !== 'system' && m.content !== '[开始]')
     .forEach((m, i) => {
       const isFirst = i === 0 && m.role === 'assistant';
+      if (m.role === 'assistant') {
+        // Detect which stage this AI message belongs to
+        let msgStage = rStage > 0 ? rStage : 1;
+        for (const s of [4, 3, 2]) {
+          if (STAGE_KW[s].some(k => m.content.includes(k))) { msgStage = s; break; }
+        }
+        if (msgStage > rStage) {
+          insertStageDivider(msgStage);
+          rStage = msgStage;
+        }
+      }
       addMsg(m.role, m.content, isFirst);
     });
 }
@@ -776,6 +848,7 @@ async function startConvo() {
     const reply = await callAI(S.msgs);
     S.msgs.push({ role:'assistant', content: reply });
     hideLoader();
+    insertStageDivider(1);
     addMsg('assistant', reply, true);
     setStage(detectStage(reply));
     saveCache();
@@ -813,6 +886,10 @@ async function send() {
       setTimeout(() => document.getElementById('mantraOv').classList.add('on'), 6500);
     }
 
+    // Detect stage change (before adding message so divider appears first)
+    const nextStage = detectStage(reply);
+    if (nextStage > S.stage) insertStageDivider(nextStage);
+
     // Detect report
     if (hasReport) {
       addMsg('assistant', reply);
@@ -825,7 +902,7 @@ async function send() {
     }
 
     addMsg('assistant', reply);
-    setStage(detectStage(reply));
+    setStage(nextStage);
     saveCache();
   } catch(e) {
     hideLoader();
@@ -1058,7 +1135,7 @@ window.clearBanner = () => {
       await audioCtx.resume(); // iOS Safari 需要手动唤醒
       source    = audioCtx.createMediaStreamSource(mediaStream);
       processor = audioCtx.createScriptProcessor(4096, 1, 1);
-      frameStatus = 0; resultText = ''; lastSegLen = 0;
+      frameStatus = 0; lastSegLen = 0;
 
       ws = new WebSocket(url);
 
@@ -1075,7 +1152,7 @@ window.clearBanner = () => {
           const msg   = { data: { status: frameStatus ? 1 : 0, format:'audio/L16;rate=16000', encoding:'raw', audio } };
           if (!frameStatus) {
             msg.common   = { app_id: _appId };
-            msg.business = { language:'zh_cn', domain:'iat', accent:'mandarin', vad_eos:2000 };
+            msg.business = { language:'zh_cn', domain:'iat', accent:'mandarin', vad_eos:5000 };
             frameStatus  = 1;
           }
           ws.send(JSON.stringify(msg));
@@ -1115,8 +1192,8 @@ window.clearBanner = () => {
   window.toggleMic = () => {
     if (active) { sendEnd(); setTimeout(stopAll, 600); return; }
     if (location.protocol === 'file:') { toast('请通过网址访问，本地文件不支持语音'); return; }
-    resultText = '';
-    document.getElementById('chatTA').value = '';
+    // 保留已有文字，继续追加新段落
+    resultText = document.getElementById('chatTA').value;
     active = true;
     const b = btn();
     if (b) { b.textContent = '🔴'; b.classList.add('recording'); }
