@@ -163,28 +163,28 @@ body{
 }
 .chat-hint{font-size:12px;color:var(--t3);margin:4px 0 0 46px;font-style:italic;line-height:1.6}
 
-/* ─── Stage Dividers ─── */
+/* ─── Stage Page Breaks ─── */
 .stage-div{
-  display:flex;align-items:center;gap:12px;
-  padding:16px 0 4px;margin:4px 0;
+  min-height:calc(100vh - 96px - 120px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;
+  margin:16px -20px;padding:60px 20px;
+  background:linear-gradient(160deg,#3D0C11 0%,#5C1622 45%,#3D0C11 100%);
+  animation:stageFade .6s ease;
 }
-.stage-div::before,.stage-div::after{content:'';flex:1;height:1px}
-.stage-div::before{background:linear-gradient(90deg,transparent,rgba(196,104,124,.25))}
-.stage-div::after{background:linear-gradient(90deg,rgba(196,104,124,.25),transparent)}
-.stage-div-lbl{
-  font-size:11.5px;color:var(--rose-d);letter-spacing:1.5px;
-  white-space:nowrap;padding:5px 16px;
-  border:1px solid rgba(196,104,124,.28);border-radius:100px;
-  background:rgba(255,255,255,.65);backdrop-filter:blur(6px);
-  -webkit-backdrop-filter:blur(6px);font-weight:500;
-}
-/* ─── Back Button ─── */
+@keyframes stageFade{from{opacity:0}to{opacity:1}}
+.stage-div-icon{font-size:54px;margin-bottom:22px;filter:drop-shadow(0 6px 16px rgba(196,104,124,.45))}
+.stage-div-act{font-size:11px;letter-spacing:4px;color:rgba(201,169,110,.75);margin-bottom:10px}
+.stage-div-title{font-size:36px;font-weight:700;color:#FAE8EA;letter-spacing:-1px;margin-bottom:8px}
+.stage-div-sub{font-size:13px;color:rgba(250,232,234,.5);letter-spacing:2.5px}
+.stage-div-rule{width:32px;height:1px;background:rgba(201,169,110,.35);margin:22px auto 0}
+/* ─── Back Button (left side, away from music button) ─── */
 .back-btn{
-  position:fixed;bottom:90px;right:16px;
+  position:fixed;bottom:90px;left:16px;
   width:40px;height:40px;
   background:rgba(255,248,245,.92);border:1px solid var(--rose-l);
   border-radius:50%;display:none;align-items:center;justify-content:center;
-  cursor:pointer;font-size:15px;
+  cursor:pointer;font-size:17px;
   box-shadow:0 2px 14px rgba(139,38,53,.13);
   z-index:48;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   transition:all .2s;color:var(--rose-d);
@@ -401,7 +401,7 @@ body{
     <div class="msgs" id="msgs"></div>
   </div>
 
-  <button class="back-btn" id="backBtn" onclick="goBack()" title="返回上一幕">↑</button>
+  <button class="back-btn" id="backBtn" onclick="goBack()" title="返回上一幕">←</button>
 
   <div class="chat-ia">
     <div class="chat-ia-inner">
@@ -616,7 +616,12 @@ const STAGE_KW = {
   4: ['模式看见','现实转念','疗愈定锚','你看到了它们之间的联系','这个新的视角','你只是在重温'],
 };
 const STAGE_NAMES = ['场景收集','触碰渴望','源码回溯','整合转化'];
-const STAGE_FULL  = ['第一幕 · 波澜','第二幕 · 深海','第三幕 · 回溯','第四幕 · 唤醒'];
+const STAGE_FULL  = [
+  { icon:'🌊', act:'第一幕', title:'波澜', sub:'生存姿态' },
+  { icon:'💎', act:'第二幕', title:'深海', sub:'期待与渴望' },
+  { icon:'🕰', act:'第三幕', title:'回溯', sub:'旧日剧本' },
+  { icon:'🌹', act:'第四幕', title:'唤醒', sub:'剧本重塑' },
+];
 
 function detectStage(text) {
   for (const s of [4,3,2]) {
@@ -640,7 +645,13 @@ function insertStageDivider(n) {
   const d = document.createElement('div');
   d.className = 'stage-div';
   d.dataset.stage = n;
-  d.innerHTML = `<div class="stage-div-lbl">✦ ${STAGE_FULL[n - 1] || ''} ✦</div>`;
+  const s = STAGE_FULL[n - 1] || {};
+  d.innerHTML = `
+    <div class="stage-div-icon">${s.icon || '✦'}</div>
+    <div class="stage-div-act">${s.act || ''}</div>
+    <div class="stage-div-title">${s.title || ''}</div>
+    <div class="stage-div-sub">${s.sub || ''}</div>
+    <div class="stage-div-rule"></div>`;
   wrap.appendChild(d);
   if (n > 1) document.getElementById('backBtn').classList.add('vis');
 }
